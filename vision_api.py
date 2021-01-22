@@ -49,30 +49,28 @@ def draw_box(image, vertices, color, normalized=False, text = None):
     return image
 
 
-def mark_objects(frame):
-        file_name = 'frame.jpg'
-        cv2.imwrite(file_name, frame)
-        pil_img = Image.open(file_name)
+def mark_items(frame, return_frame=False):
+    is_success, buf = cv2.imencode('.jpg', frame)
+    content = buf.tobytes()
 
-        with io.open(file_name, 'rb') as image_file:
-            content = image_file.read()
+    image = vision.Image(content=content)
+    response_obj = client.object_localization(image=image)
+    objects = response_obj.localized_object_annotations
+    object_names = [object_.name for object_ in objects]
 
-        image = vision.Image(content=content)
-        response_obj = client.object_localization(image=image)
-        response_text = client.text_detection(image=image)
-        objects = response_obj.localized_object_annotations
-        texts = response_text.text_annotations
-
-        print('Number of objects found: {}'.format(len(objects)))
+    response_text = client.text_detection(image=image)
+    texts = response_text.text_annotations
+    text_desc = ''
+    if len(texts) > 0:
+        text_desc = texts[0].description
+    
+    if return_frame:
+        pil_img = Image.fromarray(frame)
         for object_ in objects:
-            print(f'{object_.name} (confidence: {object_.score})')
             pil_img = draw_box(pil_img, object_.bounding_poly.normalized_vertices, 'blue', normalized=True, text=object_.name)
-            
         for text in texts[:1]:
-            print(f'Text: {text.description}')
             pil_img = draw_box(pil_img, text.bounding_poly.vertices, 'red', text=text.description)
-            
-        print()
-        frame = np.array(pil_img) 
-        frame = frame[:, :, ::-1].copy()
-        return frame
+        frame = np.array(pil_img)
+        return frame, text_desc, object_names
+    else:
+        return text_desc, object_names

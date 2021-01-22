@@ -1,9 +1,13 @@
 import cv2
+import time
 
 from graph import Graph
 from elements import ImgObj, DistinctFrames, PossibleEdge
 from locations import video_dir
-import video_utils, display_frame, matcher
+import video_utils, display_frame, matcher, vision_api
+
+FRAC_MATCH_THRESH = 0.2
+
 
 class Localization:
     def __init__(self, graph_obj: Graph):
@@ -41,7 +45,7 @@ class Localization:
             for j in range(possible_edge.to_match_params[0], possible_edge.to_match_params[1]):
                 fraction_matched, features_matched = matcher.SURF_returns(possible_edge.get_frame_params(j),
                                                                           self.get_query_params(query_index))
-                if fraction_matched > 0.09 or features_matched > 200:
+                if fraction_matched > FRAC_MATCH_THRESH or features_matched > 200:
                     progress = True
                     if fraction_matched > maxmatch:
                         match, maxmatch, maxedge = j, fraction_matched, possible_edge.name
@@ -285,6 +289,7 @@ class Localization:
         detector = cv2.xfeatures2d_SURF.create(hessian_threshold)
 
         i = 0
+        start = time.time()
         while True:
             if livestream:
                 cap = cv2.VideoCapture(video_path)
@@ -296,8 +301,7 @@ class Localization:
                 break
 
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            if video_utils.is_blurry_grayscale(gray):
-                continue
+            if video_utils.is_blurry_grayscale(gray): continue
             break_video = display_frame.run_query_frame(gray)
 
             keypoints, descriptors = detector.detectAndCompute(gray, None)
@@ -306,8 +310,10 @@ class Localization:
                 i += 1
                 continue
 
-            a = (len(keypoints), descriptors, video_utils.serialize_keypoints(keypoints), gray.shape)
-            img_obj = ImgObj(a[0], a[1], i, a[2], a[3])
+            text, objects = vision_api.mark_items(gray)
+            # text, objects = '', []
+            a = (len(keypoints), descriptors, video_utils.serialize_keypoints(keypoints), gray.shape, text, objects)
+            img_obj = ImgObj(a[0], a[1], i, a[2], a[3], a[4], a[5])
             self.query_objects.add_img_obj(img_obj)
 
             if write_to_disk:
@@ -319,6 +325,7 @@ class Localization:
                 break
             self.handle_edges()
             i += 1
+            print(f'Time Taken: {(time.time() - start) / i} secs', flush=True)
 
         cap.release()
         cv2.destroyAllWindows()

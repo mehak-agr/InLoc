@@ -35,15 +35,17 @@ class FloorMap:
 
 
 class ImgObj:
-    def __init__(self, no_of_keypoints, descriptors, time_stamp, serialized_keypoints, shape):
+    def __init__(self, no_of_keypoints, descriptors, time_stamp, serialized_keypoints, shape, text, objects):
         self.no_of_keypoints = no_of_keypoints
         self.descriptors = descriptors
         self.time_stamp = time_stamp
         self.serialized_keypoints = serialized_keypoints
         self.shape = shape
+        self.text = text
+        self.objects = objects
 
     def get_elements(self):
-        return self.no_of_keypoints, self.descriptors, self.serialized_keypoints, self.shape
+        return self.no_of_keypoints, self.descriptors, self.serialized_keypoints, self.shape, self. text, self. objects
 
     def get_time(self):
         return self.time_stamp

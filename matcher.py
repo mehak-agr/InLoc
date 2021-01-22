@@ -194,9 +194,45 @@ def ORB_match(img1, img2, hessianThreshold: int = 400, ratio_thresh: float = 0.7
     return (2.0 * len(good_matches)) / (len(keypoints1) + len(keypoints2))
 
 
+def match_text(text1, text2):
+    if len(text1) == 0 or len(text2) == 0:
+        return 0
+    size_x = len(text1) + 1
+    size_y = len(text2) + 1
+    matrix = np.zeros ((size_x, size_y))
+    for x in range(size_x):
+        matrix [x, 0] = x
+    for y in range(size_y):
+        matrix [0, y] = y
+
+    for x in range(1, size_x):
+        for y in range(1, size_y):
+            if text1[x-1] == text2[y-1]:
+                matrix [x,y] = min(
+                    matrix[x-1, y] + 1,
+                    matrix[x-1, y-1],
+                    matrix[x, y-1] + 1
+                )
+            else:
+                matrix [x,y] = min(
+                    matrix[x-1,y] + 1,
+                    matrix[x-1,y-1] + 1,
+                    matrix[x,y-1] + 1
+                )
+    frac_match = matrix[size_x - 1, size_y - 1] / min(len(text1), len(text2))
+    return frac_match
+
+
+def match_objects(objects1, objects2):
+    if len(objects1) == 0 or len(objects2) == 0:
+        return 0
+    num_match = len(set(objects1).intersection(objects2))
+    frac_match = num_match / len(set(objects1 + objects2))
+    return frac_match
+
+
 def SURF_returns(kp_des_1, kp_des_2, hessianThreshold: int = 400, ratio_thresh: float = 0.7,
-                 symmetry_match: bool = True,
-                 max_slope=0.2, check_c1_c2: bool = True):
+                 symmetry_match: bool = True, max_slope=0.2, check_c1_c2: bool = True):
     """Give fraction match between 2 images using SURF and FLANN
 
     Parameters
@@ -215,12 +251,14 @@ def SURF_returns(kp_des_1, kp_des_2, hessianThreshold: int = 400, ratio_thresh: 
         returns a number from 0 to 1 depending on percentage match and returns -1 if any of the parameter is None
     """
 
-    a1, descriptors1, kp1, shape1 = kp_des_1
-    b1, descriptors2, kp2, shape2 = kp_des_2
+    a1, descriptors1, kp1, shape1, text1, objects1 = kp_des_1
+    b1, descriptors2, kp2, shape2, text2, objects2 = kp_des_2
 
     if a1 < 2 or b1 < 2:
         return -1, None
 
+    multiplier = (1 + match_text(text1, text1)) * (1 + match_objects(objects1, objects2)) 
+    
     matcher = cv2.DescriptorMatcher_create(cv2.DescriptorMatcher_FLANNBASED)
     knn_matches = matcher.knnMatch(descriptors1, descriptors2, 2)
     good_matches=[]
@@ -276,12 +314,12 @@ def SURF_returns(kp_des_1, kp_des_2, hessianThreshold: int = 400, ratio_thresh: 
             if c2 == 0 or not 0.5 <= c1 / c2 <= 2:
                 # print("******\nDiff btw c1 and c2!\n******")
                 fraction = 2 * min(c1, c2) / (a1 + b1)
-                return fraction, min(c1,c2)
+                return multiplier * fraction, min(c1,c2)
         fraction = (c1 + c2) / (a1 + b1)
-        return fraction, min(c1,c2)
+        return multiplier * fraction, min(c1,c2)
 
     if c1 > b1:
         print("******\nc1 greater than b1, so returning zero\n*********")
         return -1, c1
     fraction = (2.0 * c1) / (a1 + b1)
-    return fraction, c1
+    return multiplier * fraction, c1

@@ -27,7 +27,14 @@ def show_frames():
         graph_frame_resized = cv2.resize(graph_frame, (w_1, h), interpolation = cv2.INTER_AREA)
         # Process query frame
         query_3_channel = cv2.cvtColor(query_video_frame, cv2.COLOR_GRAY2BGR)
-        query_3_channel = vision_api.mark_objects(query_3_channel)
+        # '''
+        query_3_channel, text_desc, object_names = vision_api.mark_items(query_3_channel, return_frame=True)
+        text_desc, object_names = vision_api.mark_items(query_3_channel)
+        if len(text_desc) != 0:
+            print('Text:', text_desc)
+        if len(object_names) != 0:
+            print('Objects:', object_names)
+        # '''
         query_3_channel_resized = cv2.resize(query_3_channel, (w_2, h), interpolation=cv2.INTER_AREA)
 
         # Put them side by side
